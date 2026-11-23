@@ -1,0 +1,34 @@
+{
+  "name": "retrace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "bun test",
+    "fixture": "bun scripts/fixture.ts",
+    "deploy": "bun run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0",
+    "@tanstack/react-query": "^5.108.3",
+    "@tanstack/react-router": "^1.170.46",
+    "@tursodatabase/serverless": "^1.4.1",
+    "fflate": "^0.8.3",
+    "hono": "^4.13.21",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.70.1",
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "@types/bun": "^1.4.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "wrangler": "^4.166.0"
+  }
+}

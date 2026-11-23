@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "retrace",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-23",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "retrace.squeakyfiddlepro.me", "custom_domain": true }],
+  "vars": { "APP_ORIGIN": "https://retrace.squeakyfiddlepro.me" },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": false },
+  "triggers": { "crons": ["19 */3 * * *"] }
+}
