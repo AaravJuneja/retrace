@@ -36,7 +36,7 @@ Copy `.dev.vars.example` to `.dev.vars` and set the values below. Register the l
    | `TURSO_AUTH_TOKEN` | Database token from `turso db tokens create retrace` |
    | `LISTENBRAINZ_USER` | Optional. Your public ListenBrainz username |
 
-Run `bun run fixture` to create a sample ZIP for testing the import and CSV export.
+Run `bun run fixture` to create a sample ZIP for testing the import and playlist export.
 
 ## Import and sync
 
@@ -44,5 +44,5 @@ Run `bun run fixture` to create a sample ZIP for testing the import and CSV expo
 - To collect new plays, open [Connect services](https://listenbrainz.org/settings/music-services/details/), choose Spotify → **Record listening history**, and set `LISTENBRAINZ_USER`. Retrace catches up when opened and pulls one page every three hours. Reconnect Spotify to ListenBrainz every six months.
 - Archive plays count at 30 seconds or more; the live feed does not provide played duration. Older archive credits usually name only the album artist, so exact artist filtering can miss guest appearances.
 - Displayed dates and era filters use your browser’s time zone. Retrace sends only the selected time bounds for an era query and does not save your time zone.
-- Download a CSV from the draft. In [Soundiiz](https://soundiiz.com/webapp/playlists), choose **Import Playlist → From File**, review the tracks, and choose Spotify. The free transfer limit is 200 tracks.
+- Download the TXT from the draft. In [Soundiiz](https://soundiiz.com/webapp/playlists), choose **Import Playlist → From File** and upload it, or copy the links and paste them with **From Plain Text**. Review the tracks and choose Spotify. The free transfer limit is 200 tracks.
 - If Turso archives the database after inactivity, run `turso group unarchive`.

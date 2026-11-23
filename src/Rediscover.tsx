@@ -1,7 +1,7 @@
 import { useDeferredValue, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { DAY, defaults, playlistCsv, readFilters, spotifyUrl, type Artist, type EraRange, type Filters, type Mode, type Status, type Track } from '../shared/history'
+import { DAY, defaults, playlistLinks, readFilters, spotifyUrl, type Artist, type EraRange, type Filters, type Mode, type Status, type Track } from '../shared/history'
 import { errorText, findArtists, readPlaylist, readStatus } from './api'
 import { dateLabel, localDate, localEraRange, since, timeLabel } from './dates'
 
@@ -98,21 +98,21 @@ function Results({ tracks, artist, mode }: { tracks: Track[]; artist: Artist | n
   const [notice, setNotice] = useState('')
   const kept = tracks.filter((track) => !removed.has(track.id))
   function download() {
-    const url = URL.createObjectURL(new Blob([playlistCsv(kept)], { type: 'text/csv;charset=utf-8' }))
-    const link = Object.assign(document.createElement('a'), { href: url, download: 'retrace-playlist.csv' })
+    const url = URL.createObjectURL(new Blob([playlistLinks(kept)], { type: 'text/plain;charset=utf-8' }))
+    const link = Object.assign(document.createElement('a'), { href: url, download: 'retrace-playlist.txt' })
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   async function copy() {
-    try { await navigator.clipboard.writeText(kept.map((t) => spotifyUrl(t.id)).join('\n')); setNotice('Spotify links copied.') }
-    catch { setNotice('Could not copy links. Download the CSV instead.') }
+    try { await navigator.clipboard.writeText(playlistLinks(kept)); setNotice('Spotify links copied.') }
+    catch { setNotice('Could not copy links. Download the TXT file instead.') }
   }
   return <section className="results" aria-labelledby="playlist-title">
     <div className="results-head">
       <div><h2 id="playlist-title">Playlist preview</h2><p>{kept.length} {kept.length === 1 ? 'track' : 'tracks'}{artist ? ` for ${artist.name}` : ''}</p></div>
       {tracks.length > 0 && <div className="export">
-        <div className="row"><button className="primary" disabled={!kept.length} onClick={download}>Download CSV</button><button disabled={!kept.length} onClick={() => void copy()}>Copy Spotify links</button></div>
-        <p>In <a href="https://soundiiz.com/webapp/playlists" target="_blank" rel="noreferrer">Soundiiz</a>, choose Import Playlist, then From File and Spotify.</p>
+        <div className="row"><button className="primary" disabled={!kept.length} onClick={download}>Download TXT</button><button disabled={!kept.length} onClick={() => void copy()}>Copy Spotify links</button></div>
+        <p>In <a href="https://soundiiz.com/webapp/playlists" target="_blank" rel="noreferrer">Soundiiz</a>, choose Import Playlist, then From File for the TXT or From Plain Text to paste links. Choose Spotify to save.</p>
       </div>}
     </div>
     {notice && <p role="status" className="notice">{notice}</p>}

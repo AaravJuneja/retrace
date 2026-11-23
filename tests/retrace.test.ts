@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { expect, test } from 'bun:test'
-import { archiveRow, DAY, defaults, listenRow, playlistCsv, type Play, type Requester } from '../shared/history'
+import { archiveRow, DAY, defaults, listenRow, playlistLinks, readFilters, type Play, type Requester } from '../shared/history'
 import { localDate, localEraRange, since } from '../src/dates'
 import { seal } from '../worker/auth'
 import { syncPage } from '../worker/feed'
@@ -68,6 +68,19 @@ test('queries lifetime, era, exact artist, cap and qualifying duration independe
   const date = new Date(play('d', 415)[1] * 1000).toISOString().slice(0, 10)
   expect(await playlist(db, { ...defaults('era'), from: date, to: date }, now)).toEqual([{ id: track('d'), title: 'Track d', artist: 'South', album: 'Night', plays: 1, last: play('d', 20)[1] }])
   expect((await artists(db, 'NORTH')).map((r) => r.name)).toEqual(['North', 'North Star'])
+})
+
+test('matches stored artist keys without reprocessing Unicode names', async () => {
+  const db = memory()
+  const names = ['¨', 'ﷺ'.repeat(300)]
+  await add(db, 'unicode', names.map((name, index) => play(String(index), 400, name)))
+  const options = await artists(db, '')
+  for (const [index, name] of names.entries()) {
+    const selected = options.find((artist) => artist.name === name)!
+    const filters = readFilters({ ...defaults('deep-cuts'), artist: selected.key })
+    expect(filters?.artist).toBe(selected.key)
+    expect((await playlist(db, filters!, now)).map((r) => r.id)).toEqual([track(String(index))])
+  }
 })
 
 test('local dates and era bounds follow daylight saving time and the calendar day', () => {
@@ -193,6 +206,7 @@ test('Discord state, PKCE and exact owner check lead to a private session', asyn
   expect((await app.fetch(new Request('https://preview.example.test/api/status', { headers: { cookie: cookie! } }), env)).status).toBe(401)
 })
 
-test('exports Spotify URLs with CSV quoting and protects spreadsheet cells', () => {
-  expect(playlistCsv([{ id: track('a'), title: '=bad', artist: 'A, B', album: 'A "quote"', plays: 7, last: now }])).toBe(`title,artist,album,url\r\n"'=bad","A, B","A ""quote""","https://open.spotify.com/track/${track('a')}"\r\n`)
+test('exports only Spotify links in playlist order', () => {
+  const tracks = ['@title', '=title', '+title', '-title'].map((title, i) => ({ id: track(String(i)), title, artist: 'A, B', album: 'A "quote"', plays: 7, last: now }))
+  expect(playlistLinks([tracks[3], tracks[1], tracks[2], tracks[0]]).split('\n')).toEqual(['3', '1', '2', '0'].map((id) => `https://open.spotify.com/track/${track(id)}`))
 })

@@ -8,7 +8,7 @@ Find the music you used to play. Retrace builds playlists from your Spotify list
 
 ## How it works
 
-Import Spotify’s **Extended Streaming History** to start with your oldest plays. Find forgotten favorites, look for deep cuts, or pick an era. Narrow the list to one artist, then download a CSV to save it to Spotify through Soundiiz.
+Import Spotify’s **Extended Streaming History** to start with your oldest plays. Find forgotten favorites, look for deep cuts, or pick an era. Narrow the list to one artist, then download the Spotify links to import them through Soundiiz.
 
 The ZIP stays on your device. Only the music play records go to your private database. If you want to keep collecting new plays, connect ListenBrainz. Its hosted listening history is public.
 

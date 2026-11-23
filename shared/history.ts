@@ -122,18 +122,17 @@ export function readFilters(value: unknown): Filters | undefined {
   if (!input || !['forgotten', 'deep-cuts', 'era'].includes(input.mode as string)) return
   const { mode, artist, album, from, to, quiet, min, max, perArtist, limit } = input
   if (!int(quiet, 0, 3650) || !int(min, 1, 100_000) || (max !== null && !int(max, min, 100_000)) || (perArtist !== null && !int(perArtist, 1, 200)) || !int(limit, 1, 200)) return
-  if (typeof artist !== 'string' || artist.length > 300 || typeof album !== 'string' || album.length > 300 || typeof from !== 'string' || typeof to !== 'string') return
+  if (typeof artist !== 'string' || artist.length > 6_000 || typeof album !== 'string' || album.length > 300 || typeof from !== 'string' || typeof to !== 'string') return
   if ((from && dateStart(from) === undefined) || (to && dateStart(to) === undefined) || (from && to && from > to)) return
   if (mode === 'era' && (!from || !to)) return
   if (mode !== 'era' && (from || to)) return
-  return { mode: mode as Mode, artist: key(text(artist)), album: key(text(album)), from, to, quiet, min, max, perArtist, limit }
+  return { mode: mode as Mode, artist, album: key(text(album)), from, to, quiet, min, max, perArtist, limit }
 }
 
 export function spotifyUrl(id: string): string {
   return `https://open.spotify.com/track/${id}`
 }
 
-export function playlistCsv(tracks: Track[]): string {
-  const field = (value: string) => `"${(/^[=+\-@\t\r\n]/.test(value) ? "'" + value : value).replaceAll('"', '""')}"`
-  return ['title,artist,album,url', ...tracks.map((t) => [t.title, t.artist, t.album, spotifyUrl(t.id)].map(field).join(','))].join('\r\n') + '\r\n'
+export function playlistLinks(tracks: readonly Track[]): string {
+  return tracks.map((track) => spotifyUrl(track.id)).join('\n')
 }
