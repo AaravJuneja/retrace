@@ -1,5 +1,5 @@
 import { createClient } from '@tursodatabase/serverless/compat'
-import { DAY, dateStart, key, type Artist, type Filters, type Manifest, type Play, type Status, type Summary, type Track } from '../shared/history'
+import { DAY, key, utcEraRange, type Artist, type Filters, type Manifest, type Play, type Status, type Summary, type Track } from '../shared/history'
 
 export type Member = string | number | null
 export type Statement = { sql: string; args?: Member[] }
@@ -116,15 +116,15 @@ export async function artists(db: Storage, search: string): Promise<Artist[]> {
   return rows.map((r) => ({ key: String(r.name_key), name: String(r.name) }))
 }
 
-export async function playlist(db: Storage, filters: Filters, now: number): Promise<Track[]> {
-  const { artist, album, from, to, quiet, min, max, perArtist, limit, mode } = filters
-  const window = from ? 'p.time BETWEEN ? AND ?' : '1 = 1'
+export async function playlist(db: Storage, filters: Filters, now: number, range = utcEraRange(filters.from, filters.to)): Promise<Track[]> {
+  const { artist, album, quiet, min, max, perArtist, limit, mode } = filters
+  const window = range ? 'p.time >= ? AND p.time < ?' : '1 = 1'
   const matches = [artist && 'EXISTS (SELECT 1 FROM track_artists AS a WHERE a.name_key = ? AND a.track_id = t.id)', album && 't.album_key = ?'].filter(Boolean)
   const order = mode === 'deep-cuts' ? 'hits ASC, last ASC' : mode === 'era' ? 'hits DESC, window_last DESC' : 'hits DESC, last ASC'
   const cap = artist ? null : perArtist
   const conditions = ['hits >= ?', max !== null && 'hits <= ?', quiet > 0 && 'last <= ?'].filter(Boolean).join(' AND ')
   const selected = cap ? 'SELECT *, ROW_NUMBER() OVER (PARTITION BY artist_key ORDER BY ' + order + ', id) AS artist_rank FROM matches' : 'SELECT * FROM matches'
-  const timeArgs = from ? [dateStart(from)!, dateStart(to)! + DAY - 1] : []
+  const timeArgs = range ?? []
   const rows = await db.read({
     sql: `WITH selected AS (
             SELECT t.* FROM tracks AS t ${matches.length ? `WHERE ${matches.join(' AND ')}` : ''}

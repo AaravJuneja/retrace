@@ -1,6 +1,7 @@
 import { Database } from 'bun:sqlite'
 import { expect, test } from 'bun:test'
 import { archiveRow, DAY, defaults, listenRow, playlistCsv, type Play, type Requester } from '../shared/history'
+import { localDate, localEraRange, since } from '../src/dates'
 import { seal } from '../worker/auth'
 import { syncPage } from '../worker/feed'
 import { createApp } from '../worker/index'
@@ -69,6 +70,22 @@ test('queries lifetime, era, exact artist, cap and qualifying duration independe
   expect((await artists(db, 'NORTH')).map((r) => r.name)).toEqual(['North', 'North Star'])
 })
 
+test('local dates and era bounds follow daylight saving time and the calendar day', () => {
+  const previous = process.env.TZ
+  process.env.TZ = 'America/New_York'
+  try {
+    const stamp = (iso: string) => Date.parse(iso) / 1000
+    expect(localDate(new Date('2025-01-01T02:00:00Z'))).toBe('2024-12-31')
+    expect(localEraRange('2024-03-10', '2024-03-10')).toEqual([stamp('2024-03-10T05:00:00Z'), stamp('2024-03-11T04:00:00Z')])
+    expect(localEraRange('2024-11-03', '2024-11-03')).toEqual([stamp('2024-11-03T04:00:00Z'), stamp('2024-11-04T05:00:00Z')])
+    expect(localEraRange('2024-02-30', '2024-03-01')).toBeUndefined()
+    expect(since(stamp('2024-03-10T04:59:00Z'), new Date('2024-03-10T05:01:00Z'))).toBe('1 day ago')
+  } finally {
+    if (previous === undefined) delete process.env.TZ
+    else process.env.TZ = previous
+  }
+})
+
 function external(time: number, letter = 'a') {
   return { listened_at: time, track_metadata: { track_name: 'Track', artist_name: 'North', release_name: 'Night', additional_info: { origin_url: `https://open.spotify.com/track/${track(letter)}`, duration_ms: 123456, music_service: 'spotify.com', submission_client: 'listenbrainz' } } }
 }
@@ -102,6 +119,27 @@ const env = { APP_ORIGIN: origin, DISCORD_CLIENT_ID: '123456789012345678', DISCO
 const get = (url: string, cookie?: string) => new Request(`${origin}${url}`, { headers: cookie ? { cookie } : undefined })
 const cookiePair = (res: Response, name: string) => res.headers.getSetCookie().find((c) => c.startsWith(`${name}=`))?.split(';')[0]
 
+test('era queries include local midnight and exclude the next day from the results', async () => {
+  const db = memory()
+  const start = Date.parse('2024-03-10T05:00:00Z') / 1000
+  const end = Date.parse('2024-03-11T04:00:00Z') / 1000
+  const times = [start - 1, start, end - 1, end]
+  await add(db, 'local-day', times.map((time, i) => [track(String(i)), time, `Track ${i}`, 'North', 'Night', 90000]))
+  const app = createApp(() => db)
+  const value = await seal(env.SESSION_SECRET, { kind: 'session', owner: env.DISCORD_OWNER_ID, exp: Math.floor(Date.now() / 1000) + 600 })
+  const query = (body: unknown) => app.request(`${origin}/api/playlist`, {
+    method: 'POST', headers: { origin, cookie: `__Host-retrace-session=${value}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }, env)
+  const filters = { ...defaults('era'), from: '2024-03-10', to: '2024-03-10' }
+  const local = await query({ ...filters, range: [start, end] })
+  expect(local.status).toBe(200)
+  const ids = async (response: Response) => (await response.json() as { id: string }[]).map((r) => r.id)
+  expect(await ids(local)).toEqual([track('2'), track('1')])
+  expect(await ids(await query(filters))).toEqual([track('1'), track('0')])
+  expect((await query({ ...filters, range: [start - 2 * DAY, end] })).status).toBe(400)
+  expect((await query({ ...defaults('forgotten'), range: [start, end] })).status).toBe(400)
+})
+
 test('session gates every application API, including expired sessions and cross-origin writes', async () => {
   const db = memory()
   const app = createApp(() => db)
@@ -122,6 +160,7 @@ test('Discord state, PKCE and exact owner check lead to a private session', asyn
   let discordOwner = '111111111111111111'
   let exchangeCount = 0
   const discord: Requester = async (url, init) => {
+    expect(init?.redirect).toBe('manual')
     if (String(url).endsWith('/oauth2/token')) {
       exchangeCount++
       expect(init?.body).toBeInstanceOf(URLSearchParams)

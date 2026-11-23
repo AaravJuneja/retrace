@@ -1,17 +1,18 @@
 import { useDeferredValue, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { DAY, dateStart, defaults, playlistCsv, readFilters, spotifyUrl, type Artist, type Filters, type Mode, type Status, type Track } from '../shared/history'
-import { dateLabel, errorText, findArtists, readPlaylist, readStatus, since, timeLabel } from './api'
+import { DAY, defaults, playlistCsv, readFilters, spotifyUrl, type Artist, type EraRange, type Filters, type Mode, type Status, type Track } from '../shared/history'
+import { errorText, findArtists, readPlaylist, readStatus } from './api'
+import { dateLabel, localDate, localEraRange, since, timeLabel } from './dates'
 
 const modes: Record<Mode, string> = { forgotten: 'Forgotten favorites', 'deep-cuts': 'Deep cuts', era: 'From an era' }
-const today = () => new Date().toISOString().slice(0, 10)
 
 function ArtistPicker({ value, change }: { value: Artist | null; change: (artist: Artist | null) => void }) {
   const trigger = useRef<HTMLButtonElement>(null)
   const [editing, setEditing] = useState(false)
   const [search, setSearch] = useState('')
   const term = useDeferredValue(search)
+  const { data: suggestions } = useQuery({ queryKey: ['artists', ''], queryFn: () => findArtists(''), select: (artists) => artists.slice(0, 3) })
   const options = useQuery({ queryKey: ['artists', term], queryFn: () => findArtists(term), enabled: editing })
   function close() {
     setEditing(false)
@@ -31,20 +32,21 @@ function ArtistPicker({ value, change }: { value: Artist | null; change: (artist
       {options.data?.length === 0 && <p>No matching recorded artists.</p>}
       <ul>{options.data?.map((artist) => <li key={artist.key}><button onClick={() => { change(artist); close() }}>{artist.name}</button></li>)}</ul>
     </div>}
+    {!editing && !!suggestions?.length && <div className="row artist-shortcuts" role="group" aria-label="Artists from your history">
+      <span aria-hidden="true">From your history</span>
+      {suggestions.map((artist) => <button key={artist.key} aria-pressed={value?.key === artist.key} onClick={() => change(value?.key === artist.key ? null : artist)}>{artist.name}</button>)}
+    </div>}
     {value && <p className="credit-note">Guest appearances by {value.name} may be missing from older plays.</p>}
   </div>
 }
 
-function Coverage({ data, quiet, from, to }: { data: Status; quiet: number; from: string; to: string }) {
+function Coverage({ data, quiet, range }: { data: Status; quiet: number; range?: EraRange }) {
   const timestamp = Math.floor(Date.now() / 1000)
   const archiveThrough = data.coverage.reduce<number | null>((last, r) => Math.max(last ?? 0, r.last), null)
   const newest = Math.max(data.archive.last ?? 0, data.live.last ?? 0)
   const overlaps = (start: number, end: number) => {
-    const eraFirst = dateStart(from)
-    const eraEnd = dateStart(to)
     return (quiet > 0 && start <= timestamp && end >= timestamp - quiet * DAY)
-      || (eraFirst !== undefined && eraEnd !== undefined && start <= eraEnd + DAY - 1 && end >= eraFirst)
-      || (!quiet && eraFirst === undefined && start <= timestamp)
+      || (range ? start < range[1] && end >= range[0] : !quiet && start <= timestamp)
   }
   const gap = archiveThrough !== null && ((data.live.first !== null && data.live.first > archiveThrough + DAY && overlaps(archiveThrough + 1, data.live.first - 1)) || (!data.feed.enabled && archiveThrough < timestamp && overlaps(archiveThrough + 1, timestamp)))
   const feedLag = data.feed.enabled && (data.feed.error || data.feed.pending || (data.feed.synced !== null && timestamp - data.feed.synced > 6 * 3600))
@@ -64,11 +66,11 @@ function Coverage({ data, quiet, from, to }: { data: Status; quiet: number; from
 function Era({ filters, change, status }: { filters: Filters; change: (patch: Partial<Filters>) => void; status?: Status }) {
   const first = Math.min(status?.archive.first ?? Infinity, status?.live.first ?? Infinity)
   const last = Math.max(status?.archive.last ?? 0, status?.live.last ?? 0)
-  const earliest = Number.isFinite(first) ? new Date(first * 1000).getUTCFullYear() : 0
-  const latest = last ? new Date(last * 1000).getUTCFullYear() : 0
+  const earliest = Number.isFinite(first) ? new Date(first * 1000).getFullYear() : 0
+  const latest = last ? new Date(last * 1000).getFullYear() : 0
   const years = earliest ? Array.from({ length: Math.min(40, latest - earliest + 1) }, (_, i) => earliest + i) : []
   return <section className="era panel" aria-label="Choose dates for the era">
-    <div className="era-header"><strong>Play dates</strong><span>Based on when you listened, not the track’s release date.</span></div>
+    <div className="era-header"><strong>Play dates</strong><span>Uses your device’s time zone and when you listened, not the release date.</span></div>
     <div className="era-years">{years.map((year) => <button key={year} aria-pressed={filters.from.startsWith(`${year}-`) && filters.to.startsWith(`${year}-`)} onClick={() => change({ from: `${year}-01-01`, to: `${year}-12-31` })}>{year}</button>)}</div>
     <div className="row">
       <label>From<input type="date" value={filters.from} onChange={(e) => change({ from: e.currentTarget.value })} /></label>
@@ -136,8 +138,9 @@ export function Rediscover() {
   const input = useDeferredValue(filters)
   const data = history.data
   const hasPlays = !!(data?.archive.n || data?.live.n)
-  const valid = !!readFilters(input)
-  const results = useQuery({ queryKey: ['playlist', input], queryFn: () => readPlaylist(input), enabled: hasPlays && valid })
+  const range = localEraRange(input.from, input.to)
+  const valid = !!readFilters(input) && (input.mode !== 'era' || !!range)
+  const results = useQuery({ queryKey: ['playlist', input, range], queryFn: () => readPlaylist(input, range), enabled: hasPlays && valid })
   const change = (patch: Partial<Filters>) => setSettings((previous) => ({ ...previous, ...patch }))
 
   function select(next: Mode) {
@@ -146,9 +149,9 @@ export function Rediscover() {
     const nextSettings = defaults(next)
     if (next === 'era') {
       const first = Math.min(data?.archive.first ?? Infinity, data?.live.first ?? Infinity)
-      const year = Number.isFinite(first) ? new Date(first * 1000).getUTCFullYear() : new Date().getUTCFullYear()
+      const year = Number.isFinite(first) ? new Date(first * 1000).getFullYear() : new Date().getFullYear()
       nextSettings.from = `${year}-01-01`
-      nextSettings.to = [today(), `${year}-12-31`].sort()[0]
+      nextSettings.to = [localDate(new Date()), `${year}-12-31`].sort()[0]
     }
     setSettings(nextSettings)
   }
@@ -157,7 +160,7 @@ export function Rediscover() {
     <h1 className="sr-only">Rediscover</h1>
     {history.isPending && <p role="status">Loading listening history…</p>}
     {history.isError && <p role="alert" className="notice">{errorText(history.error)} <button onClick={() => void history.refetch()}>Retry</button></p>}
-    {data && !hasPlays && <section className="empty panel"><h2>Start with your listening history</h2><p>Import the lifetime archive to rediscover older plays. You can also start collecting new plays while the export is preparing.</p><Link className="primary button" to="/archive">Open archive</Link></section>}
+    {data && !hasPlays && <section className="empty panel"><h2>Start with your listening history</h2><p>Import your Spotify Extended Streaming History to rediscover older plays. {data.feed.enabled ? 'Live sync is on. New plays will appear once ListenBrainz records them.' : 'You can also start collecting new plays while the export is preparing.'}</p><Link className="primary button" to="/archive">Open archive</Link></section>}
     {data && hasPlays && <>
       <div className="builder">
         <div className="modes" role="group" aria-label="Playlist mode">{Object.entries(modes).map(([id, label]) => <button key={id} aria-pressed={id === mode} onClick={() => select(id as Mode)}>{label}</button>)}</div>
@@ -165,7 +168,7 @@ export function Rediscover() {
         <ArtistPicker value={artist} change={setArtist} />
       </div>
       {mode === 'era' && <Era filters={filters} change={change} status={data} />}
-      <Coverage data={data} quiet={filters.quiet} from={filters.from} to={filters.to} />
+      <Coverage data={data} quiet={filters.quiet} range={localEraRange(filters.from, filters.to)} />
       <div className="content">
         <FiltersPanel filters={filters} change={change} />
         {!valid ? <p className="notice" role="status">Check the date range and playlist limits.</p> : results.isError ? <p className="notice" role="alert">{errorText(results.error)} <button onClick={() => void results.refetch()}>Retry</button></p> : results.isPending ? <p role="status">Building playlist…</p> : <Results tracks={results.data} artist={artist} mode={input.mode} key={JSON.stringify(input)} />}

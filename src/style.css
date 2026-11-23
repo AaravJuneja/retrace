@@ -68,6 +68,9 @@ nav a[aria-current] { border-color: var(--ink); color: var(--ink); }
 .artist-options ul { padding: 0; margin: 5px 0 0; list-style: none; }
 .artist-options li button { display: block; text-align: left; width: 100%; border-color: transparent; background: transparent; overflow-wrap: anywhere; }
 .artist-options li button:hover { background: var(--control); }
+.artist-shortcuts { margin-top: 8px; color: var(--muted); font-size: 12px; }
+.artist-shortcuts button { min-height: 30px; padding: 3px 9px; max-width: 100%; border-color: var(--line); border-radius: 100px; background: transparent; text-align: left; overflow-wrap: anywhere; }
+.artist-shortcuts [aria-pressed='true'] { border-color: var(--accent); }
 .coverage { display: flex; gap: 8px 23px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
 .coverage strong { color: var(--ink); font-weight: 550; }
 .notice { border: 1px solid var(--line); border-left: 3px solid var(--edge); padding: 9px 12px; background: var(--panel); overflow-wrap: anywhere; }

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
-import { BATCH_SIZE, DAY, int, object, parsePlay, readFilters, text, type Play, type Requester } from '../shared/history'
+import { BATCH_SIZE, DAY, int, object, parsePlay, readEraRange, readFilters, text, type Play, type Requester } from '../shared/history'
 import { authConfig, discordCallback, discordLogin, signedIn, signOut, type Env } from './auth'
 import { syncPage } from './feed'
 import { appendImport, artists, beginImport, playlist, remoteStorage, status, type Storage } from './storage'
@@ -42,9 +42,11 @@ export function createApp(database = connect, discordFetch: Requester = fetch) {
     return c.json(await artists(database(c.env), text(input.search)))
   })
   app.post('/api/playlist', async (c) => {
-    const filters = readFilters(await c.req.json().catch(() => null))
-    if (!filters) return c.json({ error: 'Check the date range and playlist limits.' }, 400)
-    return c.json(await playlist(database(c.env), filters, now()))
+    const input = object(await c.req.json().catch(() => null))
+    const filters = readFilters(input)
+    const range = filters?.mode === 'era' ? readEraRange(filters.from, filters.to, input?.range) : undefined
+    if (!filters || (filters.mode === 'era' ? !range : input?.range !== undefined)) return c.json({ error: 'Check the date range and playlist limits.' }, 400)
+    return c.json(await playlist(database(c.env), filters, now(), range))
   })
   app.post('/api/import/start', async (c) => {
     const input = object(await c.req.json().catch(() => null))

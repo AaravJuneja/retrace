@@ -41,7 +41,8 @@ Run `bun run fixture` to create a sample ZIP for testing the import and CSV expo
 ## Import and sync
 
 - Import the **Extended Streaming History** ZIP or its audio JSON files under **Archive**. Mark it complete if you selected the whole export. Interrupted imports resume when you reselect the same files.
-- To collect new plays, connect Spotify in [ListenBrainz](https://listenbrainz.org/settings/music-services/) and set `LISTENBRAINZ_USER`. Retrace catches up when opened and pulls one page every three hours. Reconnect Spotify to ListenBrainz every six months.
+- To collect new plays, open [Connect services](https://listenbrainz.org/settings/music-services/details/), choose Spotify → **Record listening history**, and set `LISTENBRAINZ_USER`. Retrace catches up when opened and pulls one page every three hours. Reconnect Spotify to ListenBrainz every six months.
 - Archive plays count at 30 seconds or more; the live feed does not provide played duration. Older archive credits usually name only the album artist, so exact artist filtering can miss guest appearances.
+- Displayed dates and era filters use your browser’s time zone. Retrace sends only the selected time bounds for an era query and does not save your time zone.
 - Download a CSV from the draft. In [Soundiiz](https://soundiiz.com/webapp/playlists), choose **Import Playlist → From File**, review the tracks, and choose Spotify. The free transfer limit is 200 tracks.
 - If Turso archives the database after inactivity, run `turso group unarchive`.

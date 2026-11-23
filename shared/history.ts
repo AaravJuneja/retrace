@@ -5,6 +5,7 @@ export const ARCHIVE_AUDIO = /^(?:Streaming_History_Audio(?:_.*)?|endsong(?:_\d+
 
 export type Play = [id: string, time: number, title: string, artist: string, album: string, ms: number | null, credits?: string[]]
 export type Mode = 'forgotten' | 'deep-cuts' | 'era'
+export type EraRange = [start: number, end: number]
 export type Filters = {
   mode: Mode
   artist: string
@@ -98,6 +99,22 @@ export function dateStart(value: string): number | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return
   const date = new Date(`${value}T00:00:00Z`)
   return Number.isFinite(+date) && date.toISOString().slice(0, 10) === value ? +date / 1000 : undefined
+}
+
+export function utcEraRange(from: string, to: string): EraRange | undefined {
+  const start = dateStart(from)
+  const last = dateStart(to)
+  if (start === undefined || last === undefined || start > last) return
+  return [start, last + DAY]
+}
+
+export function readEraRange(from: string, to: string, value: unknown): EraRange | undefined {
+  const utc = utcEraRange(from, to)
+  if (!utc || value === undefined) return utc
+  if (!Array.isArray(value) || value.length !== 2) return
+  const [start, end] = value as unknown[]
+  if (!int(start, utc[0] - DAY, utc[0] + DAY) || !int(end, utc[1] - DAY, utc[1] + DAY) || end <= start) return
+  return [start, end]
 }
 
 export function readFilters(value: unknown): Filters | undefined {

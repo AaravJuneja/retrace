@@ -102,7 +102,7 @@ export async function discordCallback(c: Ctx, request: Requester = fetch) {
   try {
     const exchange = await request(`${issuer}/api/v10/oauth2/token`, {
       method: 'POST',
-      redirect: 'error',
+      redirect: 'manual',
       headers: { Authorization: `Basic ${btoa(`${config.client}:${config.clientSecret}`)}`, 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': agent },
       body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: config.callback, code_verifier: flow.verifier }),
       signal: AbortSignal.timeout(12_000),
@@ -111,7 +111,7 @@ export async function discordCallback(c: Ctx, request: Requester = fetch) {
     const token = object(await exchange.json())
     if (typeof token?.access_token !== 'string' || token.scope !== 'identify' || String(token.token_type).toLowerCase() !== 'bearer') return c.redirect('/?login=unavailable', 303)
     const response = await request(`${issuer}/api/v10/users/@me`, {
-      headers: { Authorization: `Bearer ${token.access_token}`, 'User-Agent': agent }, redirect: 'error', signal: AbortSignal.timeout(12_000),
+      headers: { Authorization: `Bearer ${token.access_token}`, 'User-Agent': agent }, redirect: 'manual', signal: AbortSignal.timeout(12_000),
     })
     if (!response.ok) return c.redirect('/?login=unavailable', 303)
     const user = object(await response.json())

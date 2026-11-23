@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Play, type Preview } from '../shared/history'
-import { api, dateLabel, errorText, readStatus, sync, timeLabel } from './api'
+import { api, errorText, readStatus, sync } from './api'
+import { dateLabel, timeLabel } from './dates'
+
+const listenBrainzSettings = 'https://listenbrainz.org/settings/music-services/details/'
 
 function askWorker<T>(worker: Worker, message: unknown): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -124,7 +127,7 @@ export function Archive() {
           <div><dt>Newest ListenBrainz play</dt><dd>{data?.live.last != null ? timeLabel(data.live.last) : 'None recorded'}</dd></div>
           <div><dt>Last successful sync</dt><dd>{data?.feed.synced != null ? timeLabel(data.feed.synced) : 'Not yet synced'}</dd></div>
         </dl>
-        {data?.feed.enabled ? <><p>Retrace collects public Spotify listens from ListenBrainz. Check the <a href="https://listenbrainz.org/settings/music-services/" target="_blank" rel="noreferrer">connection</a> if new plays stop appearing. ListenBrainz requires reconnecting Spotify every six months.</p><button onClick={() => void syncNow()} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</button></> : <p>Live sync is optional. Connect Spotify in <a href="https://listenbrainz.org/settings/music-services/" target="_blank" rel="noreferrer">ListenBrainz</a>, then set the Worker’s ListenBrainz username. Hosted ListenBrainz history is public.</p>}
+        {data?.feed.enabled ? <><p>Retrace collects public Spotify listens from ListenBrainz. Check the <a href={listenBrainzSettings} target="_blank" rel="noreferrer">connection</a> if new plays stop appearing. ListenBrainz requires reconnecting Spotify every six months.</p><button onClick={() => void syncNow()} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync now'}</button></> : <p>Live sync is optional. Connect Spotify in <a href={listenBrainzSettings} target="_blank" rel="noreferrer">ListenBrainz</a>, then set the Worker’s ListenBrainz username. Hosted ListenBrainz history is public.</p>}
       </section>
     </div>
     {problem && <p className="notice" role="alert">{problem}</p>}
